@@ -4,6 +4,7 @@ from scipy import integrate
 from scipy import signal
 from scipy.signal import find_peaks, peak_prominences
 from scipy.integrate import trapezoid
+from scipy.special import erf
 from mpl_toolkits import mplot3d
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
@@ -13,7 +14,7 @@ import csv
 
 # Open the CSV file
 #with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/vs_code/csv1.csv", 'r') as file:
-with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021-16-24_00119jkt_eyes-open_4.csv", 'r') as file:
+with open("/Users/felixbrener/Documents/ARC/sway-18-2/1-18-2023-15-31_TEST-2_SingleLimbRIGHTEyesOpen_1.csv", 'r') as file:
     # Read the first line of the file (the header row)
     fields = file.readline().strip().split(',')
     # Delete the “Frame” field because we do not need to plot the frames
@@ -50,6 +51,20 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
                 frames = [*range(len(accel))]
                 #Trapezoidal integration to find velocity
                 velocity_cumulative = integrate.cumulative_trapezoid(val_list, x=None, dx=1.0, axis=-1)
+                '''
+                #simpsons integration
+                velocity2 = []
+                for t in range(0,(len(val_list)//3)*3,3):
+                    velocity_2 = integrate.romb(val_list[t:t+3],[t,t+1,t+2])
+                    velocity2.append(velocity_2)
+                lindis2 = []
+                for t in range(0,(len(velocity2)//3)*3,3):
+                    lindis_2 = integrate.simpson(velocity2[t:t+3],[t,t+1,t+2])
+                    lindis2.append(lindis_2)
+                ''' 
+                #velocity from gyroscope data
+                the_right_gyro = "Gyro " + key_[-1]
+                gyro1 = my_dict[the_right_gyro]   
                 #un-cumulating the cumulative integration
                 velocity_c1 = np.insert(velocity_cumulative, 0, 0)
                 velocity_c2 = np.insert(velocity_cumulative, -1, 0)
@@ -57,32 +72,24 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
                 velocity_from_integral = velocity_from_integral[:-1]
                 velocity_from_integral[-1] = velocity_from_integral[-2]
                 velocity = list(np.round(velocity_from_integral, 4))
-                #velocity from gyroscope data
-                the_right_gyro = "Gyro " + key_[-1]
-                gyro1 = my_dict[the_right_gyro]
+
                 #double integrating linAccel
                 linDisplacement_cumulative = integrate.cumulative_trapezoid(velocity, x=None, dx=1.0, axis=-1)
                 #un-cumulating the cumulative integration
+                
                 linDisplacement_c1 = np.insert(linDisplacement_cumulative, 0, 0)
                 linDisplacement_c2 = np.insert(linDisplacement_cumulative, -1, 0)
                 linDisplacement_from_integral = np.subtract(linDisplacement_c2, linDisplacement_c1)
                 linDisplacement_from_integral = linDisplacement_from_integral[:-1]
                 linDisplacement_from_integral[-1] = linDisplacement_from_integral[-2]
                 linDisplacement = list(np.round(linDisplacement_from_integral, 4))
-                #Trapezoidal integration to find radial displacement
-                displacement_cumulative = integrate.cumulative_trapezoid(gyro1, x=None, dx=1.0, axis=-1)
-                #un-cumulating the cumulative integration
-                displacement_c1 = np.insert(displacement_cumulative, 0, 0)
-                displacement_c2 = np.insert(displacement_cumulative, -1, 0)
-                displacement_from_integral = np.subtract(displacement_c2, displacement_c1)
-                displacement_from_integral = displacement_from_integral[:-1]
-                displacement_from_integral[-1] = displacement_from_integral[-2]
-                displacement = list(np.round(displacement_from_integral, 4))
-
+                
+                #Finding displacement from v = rw equation
                 #Creating a dictionary to store the data for each field and adding it to the list of dicionaries
-                dict_ = {'linDisplacement':linDisplacement,'Displacement': displacement,'rad_velocity':gyro1,'Velocity': velocity, 'Acceleration': accel, 'Jerk': jerk, 'Title':key_}
+                dict_ = {'linDisplacement':linDisplacement,'rad_velocity':gyro1,'Velocity': velocity, 'Acceleration': accel, 'Jerk': jerk, 'Title':key_}
+                #dict_ = {'rad_velocity':gyro1,'linDisplacement':lindis2, 'Velocity': velocity2, 'Acceleration': accel, 'Jerk': jerk, 'Title':key_}
                 list_of_dicts.append(dict_)
-        
+
         #creating the figure
         fig = plt.figure(figsize=(14, 7),layout="constrained")
         ax1 = fig.add_subplot(121,projection='3d')
@@ -118,7 +125,6 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
         
             xx = np.linspace(-1, 1, 10)
             yy = np.linspace(-1, 1, 10)
-            zz = np.linspace(-1, 1, 10)
             X, Y = np.meshgrid(xx, yy)
             Z = np.zeros_like(X)
 
@@ -130,14 +136,14 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
             # Updating Point Location 
             ax1.scatter(dataSet[0, num], dataSet[1, num], dataSet[2, num], c='blue', marker='o')
             # Adding Constant Origin
-            ax1.plot3D(dataSet[0, 0], dataSet[1, 0], dataSet[2, 0], cmap='coolwarm', marker='o')#c='#DC0000'
+            ax1.plot3D(dataSet[0, 0], dataSet[1, 0], dataSet[2, 0], c='#DC0000', marker='o')
             # Setting Axes Limits
             ax1.set_xlim3d([-1, 1])
             ax1.set_ylim3d([-1, 1])
             ax1.set_zlim3d([-1, 1])
 
             # Adding Figure Labels
-            ax1.set_title('Linear displacement \nTime = ' + str(np.round(t[num],    
+            ax1.set_title('Linear Displacement \nTime = ' + str(np.round(t[num],    
                         decimals=2)) + ' sec') #change this for the time to be right
             ax1.set_xlabel('x (meters)')
             ax1.set_ylabel('z(meters)')
@@ -154,7 +160,7 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
             # Updating Trajectory Line (num+1 due to Python indexing)
             #ax2.plot(dataSet_1[0, :num+1], dataSet_1[1, :num+1], c='#0093FF')
             ax2.plot(dataSet_1[0, :], dataSet_1[1, :], alpha = 0.5, linewidth=0.75, c='#0093FF', label='Speed(rad/s)')
-            ax2.plot(dataSet_1[0, :], dataSet_1[2, :], alpha = 0.5, linewidth=0.75, c='#FF0D47', label='Displacement(rad)')
+            ax2.plot(dataSet_1[0, :], dataSet_1[2, :], alpha = 0.5, linewidth=0.75, c='#FF0D47', label='Displacement(m)')
             #adding lines for wobble
             window_size = 5
             smooth_jerk_x = signal.convolve(list_of_dicts[0]['Jerk'], np.ones(window_size)/window_size, mode='same')
@@ -195,12 +201,12 @@ with open("/Users/felixbrener/Documents/ARC/OpenPose_Aidan/Jillian_csv/8-23-2021
 
             # Adding Figure Labels
             ax2.set_title('Radial Velocity \nTime = ' + str(np.round(t_1[num], decimals=2)) + ' sec')
-            ax2.set_xlabel('Milliseconds')
-            ax2.set_ylabel('Radians/Second')
+            ax2.set_xlabel('Frames')
+            ax2.set_ylabel('Speed')
 
         # Plotting the Animation
-        line_ani = animation.FuncAnimation(fig, animate_3D, interval=100, frames=numDataPoints)
-        line_ani2 = animation.FuncAnimation(fig, animate_2D, interval=100, frames=numDataPoints_1)
+        line_ani = animation.FuncAnimation(fig, animate_3D, interval=50/3, frames=numDataPoints)
+        line_ani2 = animation.FuncAnimation(fig, animate_2D, interval=50/3, frames=numDataPoints_1)
         #fig.tight_layout()
 
         plt.show()
